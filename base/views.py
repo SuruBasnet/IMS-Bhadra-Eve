@@ -2,18 +2,26 @@ from django.shortcuts import render
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.generics import GenericAPIView
 from .models import Product, ProductType
-from .serializers import ProductSerializer, ProductTypeSerializer
+from .serializers import ProductSerializer, ProductTypeSerializer, UserSerializer
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 class ProductApiView(ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
 
 class ProductTypeApiView(GenericAPIView):
     queryset = ProductType.objects.all()
     serializer_class = ProductTypeSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self,request):
         product_type_objs = self.get_queryset()
@@ -31,6 +39,7 @@ class ProductTypeApiView(GenericAPIView):
 class ProductTypeDetailApiView(GenericAPIView):
     queryset = ProductType.objects.all()
     serializer_class = ProductTypeSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self,request,pk):
         product_type_obj = self.get_object()
@@ -50,3 +59,30 @@ class ProductTypeDetailApiView(GenericAPIView):
         product_type_obj = self.get_object()
         product_type_obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['POST'])
+def register(request):
+    password = request.data.get('password')
+    hash_password = make_password(password)
+    data = request.data.copy()
+    data['password'] = hash_password
+    serializer = UserSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors)
+
+@api_view(['POST'])
+def login(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    user = authenticate(username=username,password=password)
+
+    if user == None:
+        return Response('Invalid username or password!',status=status.HTTP_400_BAD_REQUEST)
+    else:
+        token,_ = Token.objects.get_or_create(user=user)
+        return Response(token.key)
+    
