@@ -9,14 +9,14 @@ from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from rest_framework.permissions import IsAuthenticated,IsAdminUser
+from rest_framework.permissions import IsAuthenticated,IsAdminUser,DjangoModelPermissions
 from django.contrib.auth.models import Group
 
 # Create your views here.
 class ProductApiView(ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,DjangoModelPermissions]
 
 
 class ProductTypeApiView(GenericAPIView):
@@ -40,7 +40,7 @@ class ProductTypeApiView(GenericAPIView):
 class ProductTypeDetailApiView(GenericAPIView):
     queryset = ProductType.objects.all()
     serializer_class = ProductTypeSerializer
-    permission_classes = [IsAuthenticated]
+
 
     def get(self,request,pk):
         product_type_obj = self.get_object()
@@ -61,18 +61,24 @@ class ProductTypeDetailApiView(GenericAPIView):
         product_type_obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-# @api_view(['POST'])
-# def register(request):
-#     password = request.data.get('password')
-#     hash_password = make_password(password)
-#     data = request.data.copy()
-#     data['password'] = hash_password
-#     serializer = UserSerializer(data=data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data)
-#     else:
-#         return Response(serializer.errors)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_employee(request):
+    if request.user.groups.name == 'Management':
+        employee_group = Group.objects.get(name='Employee')
+        password = request.data.get('password')
+        hash_password = make_password(password)
+        data = request.data.copy()
+        data['password'] = hash_password
+        data['groups'] = employee_group.id
+        serializer = UserSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response(serializer.errors)
+    else:
+        return Response('Permission denied!',status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
