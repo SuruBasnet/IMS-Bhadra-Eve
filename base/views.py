@@ -17,7 +17,8 @@ class ProductApiView(ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated,DjangoModelPermissions]
-
+    filterset_fields = ['type','department']
+    search_fields = ['name','description']
 
 class ProductTypeApiView(GenericAPIView):
     queryset = ProductType.objects.all()
@@ -26,8 +27,11 @@ class ProductTypeApiView(GenericAPIView):
 
     def get(self,request):
         product_type_objs = self.get_queryset()
-        serializer = self.get_serializer(product_type_objs,many=True)
-        return Response(serializer.data)
+        filter_data = self.filter_queryset(product_type_objs)
+        paginate_data = self.paginate_queryset(filter_data)
+        serializer = self.get_serializer(paginate_data,many=True)
+        response = self.get_paginated_response(serializer.data)
+        return Response(response)
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -97,6 +101,7 @@ def register_management(request):
         return Response(serializer.errors)
 
 @api_view(['POST'])
+@permission_classes([])
 def login(request):
     username = request.data.get('username')
     password = request.data.get('password')
